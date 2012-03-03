@@ -1,16 +1,6 @@
 package com.flipflop.game;
 
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
-import static org.lwjgl.opengl.GL11.GL_PROJECTION;
-import static org.lwjgl.opengl.GL11.GL_VERSION;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glGetString;
-import static org.lwjgl.opengl.GL11.glLoadIdentity;
-import static org.lwjgl.opengl.GL11.glMatrixMode;
-import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.util.glu.GLU.gluOrtho2D;
+import static org.lwjgl.opengl.GL11.*;
 
 import java.awt.BorderLayout;
 import java.awt.Canvas;
@@ -127,6 +117,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		while (this.running) {
 			if (!loopStarted) loopStarted = true;
 			Display.sync(60);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			this.tick();
 			Display.update();
 		}
@@ -167,7 +158,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		mainWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		mainWindow.addWindowListener(this);
 		mainWindow.getContentPane().add(this, BorderLayout.CENTER);
-		mainWindow.add(menuBar, BorderLayout.NORTH);
+		//mainWindow.add(menuBar, BorderLayout.NORTH);
 		mainWindow.pack();
 		mainWindow.setVisible(true);
 		this.setIgnoreRepaint(true);
@@ -191,15 +182,19 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 
 	private void initOpenGL() throws LWJGLException {
 		logger.config("OpenGL Version: " + glGetString(GL_VERSION));
+		glViewport(0, 0, this.currentDisplayMode.getWidth(), this.currentDisplayMode.getHeight());
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
-		gluOrtho2D(0, this.currentDisplayMode.getWidth(), 0, this.currentDisplayMode.getHeight());
+		//glOrtho(0, this.currentDisplayMode.getWidth(), 0, this.currentDisplayMode.getHeight(), 1, -1);
+		glFrustum(-1.0d, 1.0d, -1.0d, 1.0d, 1.5d, 20.0d);
 		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-		glViewport(0, 0, this.currentDisplayMode.getWidth(), this.currentDisplayMode.getHeight());
 		// set clear color to black
 		glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	protected void cleanUpWindow() {
