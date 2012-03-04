@@ -7,4 +7,17 @@ public class Vec2 {
 		this.x = x;
 		this.y = y;
 	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Vec2) {
+			Vec2 vecObj = (Vec2) obj;
+			if (vecObj.x == this.x && vecObj.y == this.y) {
+				return true;
+			}
+		} else {
+			return super.equals(obj);
+		}
+		return false;
+	}
 }
