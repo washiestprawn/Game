@@ -226,7 +226,11 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	/**
 	 * Start the game and create the GameLoop thread (identified by the name
 	 * "GameLoop") and kicks off the game loop. The game loop will call
+<<<<<<< HEAD
 	 * {@link GameComponent#tick()} every 60th of a second.
+=======
+	 * {@link GameComponent#render()} every 60th of a second.
+>>>>>>> Added more comments.
 	 * 
 	 * @throws LWJGLException
 	 */
@@ -266,7 +270,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		try {
 			initLWJGL();
 			initOpenGL();
-			enterLoop();
+			gameLoop();
 			cleanUpLWJGL();
 		} catch (LWJGLException e) {
 			e.printStackTrace();
@@ -274,9 +278,9 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		logger.finer(Thread.currentThread().getName() + " exiting.");
 	}
 
-	abstract protected void tick();
+	abstract protected void render();
 
-	private void enterLoop() {
+	private void gameLoop() {
 		logger.fine("Starting loop...");
 		while (this.running) {
 			if (!loopStarted)
@@ -292,7 +296,11 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			
 			// Let subclass know it's time to draw.
+<<<<<<< HEAD
 			this.tick();
+=======
+			this.render();
+>>>>>>> Added more comments.
 			
 			// Swap buffers.  Display is by default a double-buffer configuration.
 			Display.update();
@@ -393,7 +401,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		glFrustum(-1.0d, 1.0d, -1.0d, 1.0d, 1.5d, 20.0d);
 		glMatrixMode(GL_MODELVIEW);
 		// set clear color to black
-		glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
