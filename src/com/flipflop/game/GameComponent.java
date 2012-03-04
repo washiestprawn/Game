@@ -226,11 +226,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	/**
 	 * Start the game and create the GameLoop thread (identified by the name
 	 * "GameLoop") and kicks off the game loop. The game loop will call
-<<<<<<< HEAD
-	 * {@link GameComponent#tick()} every 60th of a second.
-=======
 	 * {@link GameComponent#render()} every 60th of a second.
->>>>>>> Added more comments.
 	 * 
 	 * @throws LWJGLException
 	 */
@@ -296,11 +292,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			
 			// Let subclass know it's time to draw.
-<<<<<<< HEAD
-			this.tick();
-=======
 			this.render();
->>>>>>> Added more comments.
 			
 			// Swap buffers.  Display is by default a double-buffer configuration.
 			Display.update();
