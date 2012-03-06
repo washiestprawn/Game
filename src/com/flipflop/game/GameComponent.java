@@ -1,7 +1,5 @@
 package com.flipflop.game;
 
-import static org.lwjgl.opengl.GL11.*;
-
 import java.awt.BorderLayout;
 import java.awt.Canvas;
 import java.awt.Dimension;
@@ -233,7 +231,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	public void start() {
 		logger.info("Initializing Canvas...");
 		this.initWindow();
-		logger.info("Starting game!");
+		logger.info("Starting GameLoop thread!");
 		this.running = true;
 		this.gameLoop = new Thread(this, "GameLoop");
 		// this.gameLoop.setDaemon(true);
@@ -261,50 +259,13 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		this.cleanUpWindow();
 	}
 
-	@Override
-	public void run() {
-		try {
-			initLWJGL();
-			initOpenGL();
-			gameLoop();
-			cleanUpLWJGL();
-		} catch (LWJGLException e) {
-			e.printStackTrace();
-		}
-		logger.finer(Thread.currentThread().getName() + " exiting.");
-	}
-
-	abstract protected void render();
-
-	private void gameLoop() {
-		logger.fine("Starting loop...");
-		while (this.running) {
-			if (!loopStarted)
-				loopStarted = true;
-
-			// Synchronize to 60 fps.
-			// TODO Eventually we'll need a higher resolution ticker for physics
-			// and game logic, but this blocks all activity. Maybe another
-			// thread for physics resolutions and game logic...
-			Display.sync(60);
-			
-			// Clear buffer for redrawing.
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			
-			// Let subclass know it's time to draw.
-			this.render();
-			
-			// Swap buffers.  Display is by default a double-buffer configuration.
-			Display.update();
-		}
-		logger.fine("Leaving loop...");
-	}
-
 	/**
 	 * Initializes the Java window and handles some platform specific
 	 * alterations.
 	 */
 	protected void initWindow() {
+		// Get top left coord of our window centered in screen.
+		// (Screen is 0,0 at top-left)
 		int x = this.desktopDisplayMode.getWidth() / 2 - this.width / 2;
 		int y = this.desktopDisplayMode.getHeight() / 2 - this.height / 2;
 		final Dimension dim = new Dimension(this.width, this.height);
@@ -337,6 +298,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		});
 		gameMenu.add(quitItem);
 		menuBar.add(gameMenu);
+		// mainWindow.add(menuBar, BorderLayout.NORTH);
 		mainWindow.setMinimumSize(dim);
 		mainWindow.setMaximumSize(dim);
 		mainWindow.setSize(dim);
@@ -344,7 +306,6 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		mainWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		mainWindow.addWindowListener(this);
 		mainWindow.getContentPane().add(this, BorderLayout.CENTER);
-		// mainWindow.add(menuBar, BorderLayout.NORTH);
 		mainWindow.pack();
 		mainWindow.setVisible(true);
 		this.setIgnoreRepaint(true);
@@ -352,57 +313,16 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		this.requestFocus();
 	}
 
-	/**
-	 * Initializes the LWJGL utilities used by this engine.
-	 * 
-	 * @throws LWJGLException
-	 */
-	private void initLWJGL() throws LWJGLException {
-		Display.setParent(this);
-		Display.setTitle(this.appName);
-		DisplayMode targetMode = null;
-		if (this.isFullscreen) {
-			targetMode = DisplayUtil.getBestFullScreenMode(this.modesAvailable, this.desktopDisplayMode.getWidth(),
-					this.desktopDisplayMode.getHeight());
-		} else {
-			targetMode = new DisplayMode(this.width, this.height);
-		}
-		if (DisplayUtil.tryDisplayChange(targetMode, this.isFullscreen)) {
-			this.currentDisplayMode = targetMode;
-		}
-	}
+	
 
-	/**
-	 * Initializes the OpenGL states and matrices. Must be called from the
-	 * thread that created the OpenGL context. In this case, the GameLoop should
-	 * be the only thread to call this method.
-	 * 
-	 * @throws LWJGLException
-	 */
-	private void initOpenGL() throws LWJGLException {
-		logger.config("OpenGL Version: " + glGetString(GL_VERSION));
-		glViewport(0, 0, this.currentDisplayMode.getWidth(), this.currentDisplayMode.getHeight());
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-		// glOrtho(0, this.currentDisplayMode.getWidth(), 0,
-		// this.currentDisplayMode.getHeight(), 1, -1);
-		glFrustum(-1.0d, 1.0d, -1.0d, 1.0d, 1.5d, 20.0d);
-		glMatrixMode(GL_MODELVIEW);
-		// set clear color to black
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
+	
 
 	protected void cleanUpWindow() {
 		this.mainWindow.dispose();
 	}
 
-	private void cleanUpLWJGL() {
-		Display.destroy();
+	public boolean isRunning() {
+		return running;
 	}
 
 	@Override
@@ -439,57 +359,5 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	public void windowOpened(WindowEvent e) {
 	}
 
-	/**
-	 * 
-	 * @author joma
-	 * 
-	 *         Utility class regarding the {@link Display} class from LWJGL
-	 * 
-	 */
-	public static class DisplayUtil {
-		public static boolean tryDisplayChange(DisplayMode dm, boolean isFullscreen) {
-			boolean success = false;
-			try {
-				Display.setDisplayMode(dm);
-				Display.setFullscreen(isFullscreen);
-				Display.create();
-				success = true;
-			} catch (LWJGLException e) {
-				e.printStackTrace();
-			}
-
-			return success;
-		}
-
-		public static DisplayMode getBestFullScreenMode(DisplayMode[] modesAvailable, int width, int height)
-				throws LWJGLException {
-			int bestIndex = -1;
-			int currWd = Display.getDesktopDisplayMode().getWidth();
-			int currHt = Display.getDesktopDisplayMode().getHeight();
-			int currHz = Display.getDesktopDisplayMode().getFrequency();
-			int currBpp = Display.getDesktopDisplayMode().getBitsPerPixel();
-
-			for (int i = 0; i < modesAvailable.length; i++) {
-				DisplayMode mode = modesAvailable[i];
-				logger.finest(String.format("Checking: W: %d\tH: %d\tHz: %d\tBpp: %d", mode.getWidth(),
-						mode.getHeight(), mode.getFrequency(), mode.getBitsPerPixel()));
-				if (currHz == mode.getFrequency() && currBpp == mode.getBitsPerPixel() && currWd == mode.getWidth()
-						&& currHt == mode.getHeight()) {
-					bestIndex = i;
-					logger.finest("Chosen!");
-					break;
-				}
-
-			}
-
-			if (bestIndex != -1) {
-				DisplayMode targetMode = modesAvailable[bestIndex];
-				logger.fine(String.format("Using: W: %d\tH: %d\tHz: %d\tBpp: %d", targetMode.getWidth(),
-						targetMode.getHeight(), targetMode.getFrequency(), targetMode.getBitsPerPixel()));
-				return targetMode;
-			} else {
-				return null;
-			}
-		}
-	}
+	
 }
