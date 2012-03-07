@@ -25,6 +25,7 @@ public class DisplayUtil {
 			Display.setDisplayMode(dm);
 			Display.setFullscreen(isFullscreen);
 			Display.create(new PixelFormat(), new ContextAttribs(3, 2).withProfileCore(false));
+			success = true;
 		} catch (LWJGLException e) {
 			e.printStackTrace();
 		}

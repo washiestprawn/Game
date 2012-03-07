@@ -17,14 +17,19 @@ public abstract class Daemon implements Runnable {
 	private Thread daemon;
 	private boolean running = false;
 	private boolean isDone = false;
-	private Boolean hasStarted = false;
-	private TimeSync timeSync;
+	private boolean hasStarted = false;
+	private final Boolean startLock = new Boolean(true);
+	protected TimeSync timeSync = new TimeSync();
 
 	public Daemon() {
 	}
 
 	public Daemon(String daemonName) {
 		this.daemonName = daemonName;
+	}
+
+	public String getDaemonName() {
+		return daemonName;
 	}
 
 	public void start() {
@@ -36,12 +41,16 @@ public abstract class Daemon implements Runnable {
 	public void stop() {
 		this.running = false;
 	}
+	
+	public void join(long millis) throws InterruptedException {
+		this.daemon.join(millis);
+	}
 
 	public boolean waitForStart(int milli) {
-		synchronized (this.hasStarted) {
+		synchronized (this.startLock) {
 			if (!this.hasStarted) {
 				try {
-					this.hasStarted.wait(milli);
+					this.startLock.wait(milli);
 				} catch (InterruptedException e) {
 				}
 			}
@@ -55,17 +64,20 @@ public abstract class Daemon implements Runnable {
 
 	@Override
 	public void run() {
+		init();
 		while (this.running) {
 			if (!this.hasStarted) {
-				synchronized (this.hasStarted) {
+				synchronized (this.startLock) {
 					this.hasStarted = true;
-					this.hasStarted.notifyAll();
+					this.startLock.notify();
 				}
 			}
 			execute();
+			this.timeSync.syncTPS();
 		}
 	}
 
 	public abstract void execute();
+	public abstract void init();
 
 }

@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.util.HashMap;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
@@ -17,10 +18,13 @@ import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
 import org.lwjgl.LWJGLException;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
+
+import com.flipflop.game.daemon.Daemon;
+import com.flipflop.game.daemon.render.RenderDaemon;
+import com.flipflop.game.daemon.render.Renderer;
+import com.flipflop.game.input.InputDaemon;
 
 /**
  * 
@@ -31,7 +35,7 @@ import org.lwjgl.opengl.DisplayMode;
  *         libraries. This abstract class must be extended by a class that
  *         wishes to use the abilities provided.
  */
-public abstract class GameComponent extends Canvas implements Runnable, WindowListener {
+public abstract class GameComponent extends Canvas implements WindowListener, Renderer {
 	private static final long serialVersionUID = 1L; // This is meaningless.
 														// Don't worry about it.
 
@@ -48,22 +52,15 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 								// overridden in constructor.
 	protected boolean isFullscreen = false; // Whether the main window should be
 											// created in fullscreen mode.
-	protected Mouse mouse; // Mouse interface
-	protected Keyboard keyboard; // Keyboard interface
-	protected DisplayMode[] modesAvailable; // DisplayModes supported by the
-											// graphics card
-	protected DisplayMode currentDisplayMode; // The DisplayMode we are
-												// currently using
 	protected DisplayMode desktopDisplayMode; // The desktop's display mode.
 												// Used to get monitor settings
 												// such as refresh rate, bits
 												// per pixel, and dimensions.
-	private Thread gameLoop; // The thread executing the GameLoop. Held so we
-								// can join on it after we tell it to stop
-								// running.
-	private boolean loopStarted = false; // Controller for the GameLoop so we
-											// can't close the window BEFORE the
-											// GameLoop even starts.
+	
+	// TODO Make this a daemon manager that can assign ids.
+	private HashMap<Integer, Daemon> daemons = new HashMap<Integer, Daemon>();
+	private Daemon renderDaemon;
+	private Daemon inputDaemon;
 
 	/**
 	 * Constructs the {@link GameComponent}.
@@ -205,9 +202,13 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		this.height = height;
 		this.isFullscreen = isFullscreen;
 		this.appName = name;
-		this.modesAvailable = Display.getAvailableDisplayModes();
 		this.desktopDisplayMode = Display.getDesktopDisplayMode();
-		logger.finer(String.format("Found %d acceptable Display Modes...", this.modesAvailable.length));
+		DisplayMode target = new DisplayMode(this.width, this.height);
+		daemons.put(1, this.renderDaemon = new RenderDaemon(this, target, this, this.appName));
+		daemons.put(2, this.inputDaemon = new InputDaemon());
+
+		
+		
 		logger.info("Initialized GameComponent.");
 	}
 
@@ -219,44 +220,6 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	 */
 	public static GameComponent getInstance() {
 		return instance;
-	}
-
-	/**
-	 * Start the game and create the GameLoop thread (identified by the name
-	 * "GameLoop") and kicks off the game loop. The game loop will call
-	 * {@link GameComponent#render()} every 60th of a second.
-	 * 
-	 * @throws LWJGLException
-	 */
-	public void start() {
-		logger.info("Initializing Canvas...");
-		this.initWindow();
-		logger.info("Starting GameLoop thread!");
-		this.running = true;
-		this.gameLoop = new Thread(this, "GameLoop");
-		// this.gameLoop.setDaemon(true);
-		this.gameLoop.start();
-	}
-
-	public void stop() throws LWJGLException {
-		try {
-			// Give the game loop a chance to start before trying to stop it.
-			while (!loopStarted) {
-				Thread.sleep(200);
-			}
-			logger.info("Game Over, man.");
-			this.running = false;
-
-			// Only try to join if it's still alive. Joining a dead thread is no
-			// good.
-			if (this.gameLoop.isAlive()) {
-				this.gameLoop.join();
-				logger.fine(this.gameLoop.getName() + " came home.");
-			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		this.cleanUpWindow();
 	}
 
 	/**
@@ -290,10 +253,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				try {
-					GameComponent.getInstance().stop();
-				} catch (LWJGLException e1) {
-				}
+				GameComponent.getInstance().stop();
 			}
 		});
 		gameMenu.add(quitItem);
@@ -313,10 +273,27 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 		this.requestFocus();
 	}
 
-	
+	public void start() {
+		initWindow();
+		for (Daemon daemon : this.daemons.values().toArray(new Daemon[0])) {
+			daemon.start();
+			logger.info("Started "+daemon.getDaemonName()+".");
+		}
+	}
 
+	public void stop() {
+		for (Daemon daemon : this.daemons.values().toArray(new Daemon[0])) {
+			daemon.stop();
+			try {
+				logger.finer("Waiting for "+daemon.getDaemonName()+" to finish.");
+				daemon.join(0);
+			} catch( InterruptedException e) {
+				logger.warning("Interrupted on join "+daemon.getDaemonName()+". Giving up.");
+			}
+			logger.info("Joined "+daemon.getDaemonName()+".");
+		}
+	}
 	
-
 	protected void cleanUpWindow() {
 		this.mainWindow.dispose();
 	}
@@ -327,12 +304,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 
 	@Override
 	public void windowClosing(WindowEvent e) {
-		try {
-			this.stop();
-		} catch (LWJGLException e1) {
-			e1.printStackTrace();
-			this.cleanUpWindow();
-		}
+		this.stop();
 	}
 
 	@Override
@@ -358,6 +330,7 @@ public abstract class GameComponent extends Canvas implements Runnable, WindowLi
 	@Override
 	public void windowOpened(WindowEvent e) {
 	}
-
 	
+	public abstract void render();
+
 }
